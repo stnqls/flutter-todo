@@ -1,4 +1,8 @@
+import 'dart:convert';
+
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:todos/%20models/todo_model.dart';
 
 class TodoScreen extends StatefulWidget {
   const TodoScreen({super.key});
@@ -10,6 +14,33 @@ class TodoScreen extends StatefulWidget {
 class _TodoScreenState extends State<TodoScreen> {
   final TextEditingController _todoController = TextEditingController();
   bool isEdit = false;
+  Future<List<TodoModel>> todoList = getTodoList();
+
+  static String baseUrl = 'https://iskkiri.com/api/todos';
+  static final dio = Dio();
+
+  static postTodo(String text) async {
+    final response = await dio.post('$baseUrl', data: {'title': text});
+    return response.data;
+  }
+
+  static Future<List<TodoModel>> getTodoList() async {
+    List<TodoModel> todoInstances = [];
+    final response = await dio.get('$baseUrl');
+    if (response.statusCode == 200) {
+      for (var item in response.data!) {
+        todoInstances.add(TodoModel.fromJson(item));
+      }
+      return todoInstances;
+    }
+    throw Error();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    todoList = getTodoList();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -44,9 +75,10 @@ class _TodoScreenState extends State<TodoScreen> {
                   ),
                   const SizedBox(width: 18),
                   ElevatedButton(
-                    onPressed: () {
+                    onPressed: () async {
+                      await postTodo(_todoController.text);
                       setState(() {
-                        _todoController.text;
+                        todoList = getTodoList();
                       });
                     },
                     style: ElevatedButton.styleFrom(
@@ -63,6 +95,22 @@ class _TodoScreenState extends State<TodoScreen> {
               const SizedBox(height: 24),
               const Text('TODO LIST'),
               const SizedBox(height: 16),
+              FutureBuilder<List<TodoModel>>(
+                  future: todoList,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
+                    if (snapshot.hasError) {
+                      return const Center(child: Text('Error'));
+                    }
+                    return ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: snapshot.data!.length,
+                        itemBuilder: (context, index) {
+                          return Text(snapshot.data![index].title);
+                        });
+                  }),
               Container(
                 decoration: const BoxDecoration(
                   color: Colors.white,
