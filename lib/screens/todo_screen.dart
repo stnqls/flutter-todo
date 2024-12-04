@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:todos/%20models/todo_model.dart';
@@ -20,13 +18,33 @@ class _TodoScreenState extends State<TodoScreen> {
   static final dio = Dio();
 
   static postTodo(String text) async {
-    final response = await dio.post('$baseUrl', data: {'title': text});
+    final response = await dio.post(baseUrl, data: {'title': text});
+    return response.data;
+  }
+
+// todo 내용 수정
+  static putTodo({
+    required int id,
+    required String text,
+  }) async {
+    final response = await dio.put(baseUrl, data: {'id': id, 'title': text});
+    return response.data;
+  }
+
+  static deleteTodo(int id) async {
+    final response = await dio.delete('$baseUrl?id=$id');
+    return response.data;
+  }
+
+// 할일 완료
+  static patchTodo(int id) async {
+    final response = await dio.patch('$baseUrl?id=$id');
     return response.data;
   }
 
   static Future<List<TodoModel>> getTodoList() async {
     List<TodoModel> todoInstances = [];
-    final response = await dio.get('$baseUrl');
+    final response = await dio.get(baseUrl);
     if (response.statusCode == 200) {
       for (var item in response.data!) {
         todoInstances.add(TodoModel.fromJson(item));
@@ -108,40 +126,45 @@ class _TodoScreenState extends State<TodoScreen> {
                         shrinkWrap: true,
                         itemCount: snapshot.data!.length,
                         itemBuilder: (context, index) {
-                          return Text(snapshot.data![index].title);
+                          return Container(
+                            decoration: const BoxDecoration(
+                              color: Colors.white,
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                      readOnly: !isEdit,
+                                      decoration: InputDecoration(
+                                        hintText: _todoController.text,
+                                        border:
+                                            isEdit ? const OutlineInputBorder() : InputBorder.none,
+                                        focusedBorder:
+                                            isEdit ? const OutlineInputBorder() : InputBorder.none,
+                                      )),
+                                ),
+                                const SizedBox(width: 8),
+                                buttons(snapshot.data![index].id),
+                              ],
+                            ),
+                          );
                         });
                   }),
-              Container(
-                decoration: const BoxDecoration(
-                  color: Colors.white,
-                ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: TextField(
-                          readOnly: !isEdit,
-                          decoration: InputDecoration(
-                            hintText: _todoController.text,
-                            border: isEdit ? const OutlineInputBorder() : InputBorder.none,
-                            focusedBorder: isEdit ? const OutlineInputBorder() : InputBorder.none,
-                          )),
-                    ),
-                    const SizedBox(width: 8),
-                    buttons(),
-                  ],
-                ),
-              ),
             ],
           ),
         ));
   }
 
-  Row buttons() {
+  Row buttons(int id) {
     if (!isEdit) {
       return Row(
         children: [
           IconButton(
             onPressed: () {
+              putTodo(
+                id: id,
+                text: _todoController.text,
+              );
               setState(() {
                 isEdit = !isEdit;
               });
@@ -153,8 +176,11 @@ class _TodoScreenState extends State<TodoScreen> {
           ),
           const SizedBox(width: 8),
           IconButton(
-            onPressed: () {
-              print('delete');
+            onPressed: () async {
+              await deleteTodo(id);
+              setState(() {
+                todoList = getTodoList();
+              });
             },
             icon: const Icon(Icons.delete, color: Colors.redAccent),
           ),
